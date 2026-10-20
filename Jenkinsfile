@@ -69,7 +69,7 @@ pipeline {
             sh 'docker logout || true'
             archiveArtifacts artifacts: 'target/*.jar',
                              fingerprint: true,
-                             allowEmpty: true
+                             allowEmptyArchive: true
         }
         success {
             echo 'Pipeline réussi : le JAR a été archivé.'
