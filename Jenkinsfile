@@ -14,22 +14,19 @@ pipeline {
     stages {
         stage('Commit') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/nargese/student-management.git'
-
-                bat 'git log -1 --pretty=format:"Hash: %h%nAuteur: %an%nMessage: %s"'
+                sh 'git log -1 --pretty=format:"Hash: %h%nAuteur: %an%nMessage: %s"'
             }
         }
 
         stage('Build') {
             steps {
-                bat 'mvn clean package -DskipTests'
+                sh 'mvn clean package -DskipTests'
             }
         }
 
         stage('Test unitaire') {
             steps {
-                bat 'mvn test'
+                sh 'mvn test'
             }
             post {
                 always {
