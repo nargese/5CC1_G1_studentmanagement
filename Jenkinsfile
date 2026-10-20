@@ -1,14 +1,13 @@
-
 pipeline {
     agent any
 
-    tools {
-        jdk 'JAVA_HOME'
-        maven 'M2_HOME'
-    }
-
     triggers {
         pollSCM('H/5 * * * *')
+    }
+
+    environment {
+        DOCKER_IMAGE = 'nargese/student-management'
+        DOCKER_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
@@ -20,26 +19,59 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'mvn clean package -DskipTests'
+                sh 'chmod +x mvnw'
+                sh './mvnw clean package -DskipTests'
             }
         }
 
         stage('Test unitaire') {
             steps {
-                sh 'mvn test'
+                sh './mvnw test'
             }
             post {
                 always {
-                    junit 'target/surefire-reports/*.xml'
+                    junit allowEmptyResults: true,
+                          testResults: 'target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                sh '''
+                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                    docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
+                '''
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKERHUB_USER',
+                        passwordVariable: 'DOCKERHUB_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USER" --password-stdin
+                        docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
+                        docker push ${DOCKER_IMAGE}:latest
+                    '''
                 }
             }
         }
     }
 
     post {
-        success {
+        always {
+            sh 'docker logout || true'
             archiveArtifacts artifacts: 'target/*.jar',
-                             fingerprint: true
+                             fingerprint: true,
+                             allowEmpty: true
+        }
+        success {
             echo 'Pipeline réussi : le JAR a été archivé.'
         }
         failure {
