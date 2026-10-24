@@ -84,4 +84,16 @@ class DepartmentServiceTest {
 
         verify(departmentRepository, times(1)).deleteById(1L);
     }
+
+    
+    @Test
+    void countDepartments_retourneLeNombreDuRepository() {
+        when(departmentRepository.count()).thenReturn(5L);
+
+        long result = departmentService.countDepartments();
+
+        assertEquals(5L, result);
+        verify(departmentRepository, times(1)).count();
+    }
+
 }
