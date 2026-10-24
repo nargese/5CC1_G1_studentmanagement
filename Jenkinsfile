@@ -1,4 +1,3 @@
-
 pipeline {
     agent any
 
@@ -31,13 +30,14 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'mvn -B clean package -DskipTests'
+                sh 'chmod +x mvnw'
+                sh './mvnw -B clean package -DskipTests'
             }
         }
 
         stage('Test unitaire') {
             steps {
-                sh 'mvn -B test'
+                sh './mvnw -B test'
             }
             post {
                 always {
@@ -46,7 +46,27 @@ pipeline {
             }
         }
 
-        stage('Docker build') {
+        stage('Analyse SonarQube') {
+            steps {
+                withSonarQubeEnv('sonarqube') {
+                    sh '''
+                        ./mvnw -B sonar:sonar \
+                          -Dsonar.projectKey=student-management-nargese_5cc1_g1 \
+                          -Dsonar.projectName=student-management-nargese_5cc1_g1
+                    '''
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Docker Build') {
             steps {
                 sh "docker build -t ${IMAGE}:${TAG} ."
             }
@@ -88,10 +108,10 @@ pipeline {
     post {
         success {
             archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
-            echo "Succès : image ${IMAGE}:${TAG} publiée sur Docker Hub."
+            echo 'Pipeline réussi : tests, analyse SonarQube et Quality Gate validés.'
         }
         failure {
-            echo 'Échec : consulter la Console Output du stage en rouge.'
+            echo 'Pipeline échoué : consultez les logs, les tests et le Quality Gate.'
         }
         always {
             sh "docker image rm -f ${IMAGE}:${TAG} || true"
